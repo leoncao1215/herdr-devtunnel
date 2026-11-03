@@ -227,7 +227,9 @@ export async function autostart(argv) {
   if (!args.operation || args.operation === '--help' || args.operation === 'help' || args.help) { process.stdout.write(HELP); return; }
   if (process.platform !== 'win32') throw new Error('Autostart is currently Windows-only; manual serve still works on macOS/Linux');
   if (args.operation === '_run') {
-    const config = validateConfig(readJson(resolve(args.config ?? '')));
+    const path = resolve(args.config ?? '');
+    const config = validateConfig(readJson(path));
+    if (realpathSync(config.configPath) !== realpathSync(path)) throw new Error('Task config path does not match the saved profile');
     if (realpathSync(config.runner) !== realpathSync(fileURLToPath(import.meta.url))) throw new Error('Task runner path does not match installation');
     process.exitCode = await runInstance(config); return;
   }
@@ -238,7 +240,10 @@ export async function autostart(argv) {
   const location = configLocation(nameOf(args.name));
   const timeout = integer(args.timeout, 90, 600) * 1000;
   let config = readJson(location, true), result;
-  if (config) validateConfig(config);
+  if (config) {
+    validateConfig(config);
+    if (config.name !== args.name || resolve(config.configPath) !== resolve(location)) throw new Error('Saved configuration does not match the requested profile');
+  }
   if (args.operation === 'install') {
     const installed = readJson(join(ROOT, '.herdr-devtunnel-install.json'), true);
     if (installed?.app !== APP) throw new Error('Run node install.mjs first, then use the installed launcher to register autostart (not a checkout)');

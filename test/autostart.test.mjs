@@ -124,6 +124,7 @@ test('opt-in Windows task registration is Limited/Interactive and never starts a
   assert.equal(registered.logonType, 'Interactive'); assert.equal(registered.runLevel, 'Limited');
   assert.equal(registered.executionTimeLimit, 'PT0S'); assert.equal(registered.restartCount, 3);
   assert.equal(registered.restartInterval, 'PT1M'); assert.equal(registered.multipleInstances, 'IgnoreNew');
+  assert.equal(taskRequest('inspect', config).exists, true);
   assert.throws(() => taskRequest('install', config), /without a matching saved configuration/);
   assert.throws(() => taskRequest('inspect', { ...config, actionArguments: 'wrong runner' }), /does not match/);
   const updated = taskRequest('install', config, config);

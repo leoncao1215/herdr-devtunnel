@@ -38,11 +38,22 @@ try {
             if ($null -eq $request.previous) { throw 'Task exists without a matching saved configuration; refusing to adopt it.' }
             $expected = $request.previous
         }
-        $principalSid = $task.Principal.UserId
+        # The CIM view may turn a SID into an unqualified display name (e.g.
+        # runneradmin). Prefer the stored XML identity, not that display name.
+        [xml]$stored = Export-ScheduledTask -TaskName $c.taskName -TaskPath '\'
+        $principalSid = [string]$stored.Task.Principals.Principal.UserId
         if ($principalSid -notmatch '^S-1-') {
-            # Avoid a fresh domain-controller lookup on disconnected AD machines.
-            if ($principalSid -ine $identity.Name) { throw 'Task principal is not the current user.' }
-            $principalSid = $sid
+            if ($principalSid -ieq $identity.Name) {
+                # Already verified against the current token: no AD lookup.
+                $principalSid = $sid
+            } elseif ($principalSid -notmatch '[\\@]') {
+                # Resolve a bare local name ONLY in local SAM, never guess that
+                # an unqualified account is our domain user based on its name.
+                $localAccount = New-Object System.Security.Principal.NTAccount($env:COMPUTERNAME, $principalSid)
+                $principalSid = $localAccount.Translate([System.Security.Principal.SecurityIdentifier]).Value
+            } else {
+                throw 'Task principal is not the current user.'
+            }
         }
         $actions = @($task.Actions)
         if ($task.Description -cne $c.marker -or $principalSid -ne $sid -or
