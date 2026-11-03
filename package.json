@@ -1,0 +1,20 @@
+{
+  "name": "herdr-devtunnel",
+  "version": "0.1.1",
+  "private": true,
+  "type": "module",
+  "description": "Private Dev Tunnels transport for Herdr App and herdr-core, without SSH",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/leoncao1215/herdr-devtunnel.git"
+  },
+  "bugs": { "url": "https://github.com/leoncao1215/herdr-devtunnel/issues" },
+  "homepage": "https://github.com/leoncao1215/herdr-devtunnel#readme",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "check": "node --check herdr-devtunnel.mjs && node --check install.mjs",
+    "doctor": "node herdr-devtunnel.mjs doctor"
+  }
+}

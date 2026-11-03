@@ -1,0 +1,17 @@
+node_modules/
+dist/
+coverage/
+*.log
+*.pid
+*.zip
+*.tar.gz
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+id_ed25519*
+.herdr-devtunnel-install.json
+*.install-*
+__pycache__/
+.DS_Store
