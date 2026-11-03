@@ -47,7 +47,21 @@ identifier from the Ready line. `--create` is only for the first new tunnel. Fut
 Do not delete an existing tunnel because a name conflicts: verify ownership/purpose or choose another name.
 Do not publish another user's port; if port 43821 is busy, choose a different one instead of killing its process.
 
-## Windows background launch
+## Windows: recommended long-term launch
+
+Use the explicit current-user login task in [Windows autostart](docs/WINDOWS-AUTOSTART.md):
+
+```powershell
+herdr-devtunnel autostart install --name workbox --tunnel NAME.CLUSTER
+# Verify/stop any old manual bridge first; do not stop hc or its agents.
+herdr-devtunnel autostart start --name workbox
+```
+
+This runs only while the user is logged in, without SYSTEM/passwords/elevation. The task has bounded failure
+retries and log rotation. `stop` disables future autostart until `start`; `uninstall` removes the task.
+Registration does not automatically take over the old background process. Read the migration guide first.
+
+## Windows manual background launch (temporary / fallback)
 
 Do not start this while a foreground instance still owns the same port. Use the verified current account.
 

@@ -1,6 +1,6 @@
 {
   "name": "herdr-devtunnel",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "description": "Private Dev Tunnels transport for Herdr App and herdr-core, without SSH",
@@ -14,7 +14,7 @@
   "engines": { "node": ">=22" },
   "scripts": {
     "test": "node --test test/*.test.mjs",
-    "check": "node --check herdr-devtunnel.mjs && node --check install.mjs",
+    "check": "node --check herdr-devtunnel.mjs && node --check autostart.mjs && node --check install.mjs",
     "doctor": "node herdr-devtunnel.mjs doctor"
   }
 }

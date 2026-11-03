@@ -107,6 +107,17 @@ herdr-devtunnel serve --tunnel UNIQUE-NAME --create
 需要后台运行时使用 SERVER-SETUP.md 的对应 OS 启动命令，检查进程和日志，
 等待 `Ready to accept connections for tunnel: NAME.CLUSTER`。
 不擅自注册 Windows Service/systemd/launchd/计划任务或提高权限。
+如果用户明确要求登录自启，按 [Windows 自启手册](WINDOWS-AUTOSTART.md) 使用 0.2.0 的命令：
+
+```sh
+herdr-devtunnel autostart install --name PROFILE --tunnel NAME.CLUSTER
+# 在 Windows 本地核对并停止旧手动 bridge 后，再：
+herdr-devtunnel autostart start --name PROFILE
+herdr-devtunnel autostart status --name PROFILE
+```
+
+不要通过即将关闭的远程连接执行停止自身再启动的迁移。不要停 hc/agent，不用 SYSTEM，不存密码。
+`stop` 同时暂停登录自启，`start` 恢复；`uninstall` 移除任务但保留配置/日志。策略拒绝时报告，不绕过。
 不要把“进程启动了”当成“网络和 core 认证验收通过”。
 
 ## 2B. 配置 client
@@ -160,6 +171,7 @@ Herdr App 使用同一用户/同一本地 core 时应能识别机器；`herdr-ap
 更新前确认活动连接；审阅新版本、运行离线测试、重跑 installer。协调重启 bridge，
 不重启 core/agent。可执行路径改变时需重新登记对应 machine，先确认后操作。
 
-卸载只移除本项目的 machine、已核实 PID 的 bridge、安装目录和 launcher。
+使用登录任务的先 `autostart uninstall --name PROFILE`。卸载只移除本项目的 machine、
+已核实 PID 的手动 bridge、安装目录和 launcher。
 不删除远端 agent、项目目录、其他 tunnel、SSH 配置或账号凭据。
 删除不再使用的专用 tunnel 必须由用户明确确认，并使用其完整标识。

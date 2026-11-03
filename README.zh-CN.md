@@ -55,6 +55,22 @@ herdr-devtunnel serve --tunnel my-unique-agent-host --create
 看到 `Ready to accept connections for tunnel: NAME.CLUSTER` 才算隧道就绪。
 让进程持续运行；后台启动方法见 [SERVER-SETUP.md](SERVER-SETUP.md)。
 
+### Windows 登录自启（0.2.0+）
+
+安装后，针对已存在的 tunnel 显式配置：
+
+```powershell
+herdr-devtunnel autostart install --name workbox --tunnel NAME.CLUSTER
+# 核对并停止旧手动 bridge 后：
+herdr-devtunnel autostart start --name workbox
+herdr-devtunnel autostart status --name workbox
+herdr-devtunnel autostart logs --name workbox
+```
+
+使用当前用户的 Interactive/Limited 计划任务，不存密码、不用 SYSTEM；失败最多重试 3 次。
+`stop` 会暂停自启并优雅停止 bridge，`start` 恢复，`uninstall` 移除任务但保留日志。
+重启后仍需先登录，不保证注销后运行。迁移与管理详见 [Windows 自启手册](docs/WINDOWS-AUTOSTART.md)。
+
 ## 客户端
 
 拿到服务端完整 tunnel 标识后：
@@ -89,8 +105,8 @@ Windows **客户端**还需要 `sh` 在 PATH 中（例如 Git for Windows 的 sh
 - 更新：切到审阅过的版本后重跑安装器；协调重启 bridge，不会自动重启 core/agent。
 - Node/devtunnel 可执行路径改变后，需要重新登记对应 machine。不要手改 core 状态 JSON。
 - 不要对本连接使用 App 的 SSH Login / Update Core；在远端手动维护 hc。
-- 卸载先移除本工具创建的 machine、确认 PID 后停止 bridge，再删除安装目录与 launcher。
-  tunnel 和 agent 不会自动删除。
+- 使用 Windows 自启的先执行 `autostart uninstall --name PROFILE`，再移除本工具创建的 machine、
+  核对并停止手动 bridge，最后删除安装目录与 launcher。tunnel 和 agent 不会自动删除。
 
 ## 验证状态
 
@@ -99,7 +115,7 @@ Herdr App 0.1.12 能显示远端 space。Mac 的真实隧道测试还验证了�
 
 完整交互式 agent 行为、中文/代码页、Windows/Linux client、Linux server、系统注销/重启后的恢复
 尚未完整验收。旧 herdr TUI 0.8.x 不属于这个集成。CLI 协议/输出变动可能需要适配器更新。
-本版尚无开机自启和完整服务管理。
+已支持 Windows 用户登录自启；尚无无人登录的系统服务，也没有 macOS/Linux 自启管理。
 
 ```sh
 npm test

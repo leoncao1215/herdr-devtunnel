@@ -9,6 +9,8 @@ Do not confuse GitHub deploy credentials with Dev Tunnels login.
 ## Project map
 
 - `herdr-devtunnel.mjs`: CLI, transparent IO bridge, strict hc bootstrap adapter, devtunnel supervisor, doctor.
+- `autostart.mjs`, `scripts/windows-task.ps1`: explicitly opted-in Windows login tasks, runner, status/logs/graceful stop.
+- `docs/WINDOWS-AUTOSTART.md`: manual-to-managed migration and task lifecycle semantics.
 - `install.mjs`: dependency-free user-local installer. Never performs login, networking or machine registration
   unless the user explicitly requests `--check` (doctor reads CLI login/service status).
 - `test/bridge.test.mjs`: offline protocol/lifecycle tests.
@@ -30,6 +32,9 @@ Do not confuse GitHub deploy credentials with Dev Tunnels login.
 10. A protocol/bootstrap change must be explicit and tested; do not broaden validation to arbitrary shell commands.
 
 Run `npm test` and `npm run check` before proposing a commit. No npm dependencies are needed.
+Windows CI may set `HERDR_TEST_WINDOWS_TASKS=1` to register/inspect/delete a unique DISABLED scratch task.
+Never start that task or touch an existing one in offline tests. Autostart deployment needs explicit user consent;
+never migrate a live manual bridge through the same connection you are about to close.
 Only run the live test when network/resource creation is authorized. It creates a private test tunnel and deletes
 that exact tunnel afterward. Do not use the user's existing tunnel for automated lifecycle tests.
 

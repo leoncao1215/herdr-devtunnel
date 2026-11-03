@@ -19,3 +19,7 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: npm run check
       - run: npm test
+        env:
+          # Explicit opt-in: create/inspect/delete a unique DISABLED scratch task.
+          # It never starts a process, logs in, or touches an existing task.
+          HERDR_TEST_WINDOWS_TASKS: ${{ runner.os == 'Windows' && '1' || '0' }}

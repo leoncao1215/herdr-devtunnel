@@ -19,6 +19,10 @@ Server (run under the Windows user who owns hc/Copilot):
 Client (after server is ready):
   herdr-devtunnel add --name my-remote --tunnel NAME.CLUSTER
 
+Windows login autostart (explicit opt-in; see autostart --help):
+  herdr-devtunnel autostart install --name workbox --tunnel NAME.CLUSTER
+  herdr-devtunnel autostart start --name workbox
+
 Preflight:
   herdr-devtunnel doctor --role client|server|both [--json]
   herdr-devtunnel --version
@@ -136,6 +140,21 @@ function stopChild(child) {
   timer.unref(); child.once('exit', () => clearTimeout(timer));
 }
 
+// Give the lifetime-pipe supervisor time to reap its official CLI first.
+// Terminating the supervisor immediately on Windows would orphan devtunnel.
+function closeManagedTunnel(child) {
+  if (!child || child.exitCode !== null || child.signalCode !== null) return;
+  child.stdin.end();
+  const timer = setTimeout(() => {
+    if (process.platform === 'win32' && child.pid) {
+      // This owned subtree contains only the tunnel supervisor and CLI, NOT hc.
+      const killer = spawn('taskkill.exe', ['/PID', String(child.pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+      killer.on('error', () => stopChild(child));
+    } else stopChild(child);
+  }, 8000);
+  timer.unref(); child.once('exit', () => clearTimeout(timer));
+}
+
 function runCommand(bin, args, timeout = 45000) {
   return new Promise((resolvePromise, reject) => {
     const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true });
@@ -205,7 +224,7 @@ async function tunnelPort(child, remotePort, timeout) {
   });
 }
 
-export function createBridge({ hc, session = 'default', maxConnections = 32 }) {
+export function createBridge({ hc, session = 'default', maxConnections = 32, logger = log }) {
   sessionName(session);
   const sockets = new Set();
   const server = net.createServer({ allowHalfOpen: true }, socket => {
@@ -223,56 +242,79 @@ export function createBridge({ hc, session = 'default', maxConnections = 32 }) {
       if (socket.destroyed) { stopChild(child); return; }
       child.stdin.on('error', () => socket.destroy());
       child.stdout.on('error', () => socket.destroy());
-      lines(child.stderr, text => { if (text) log(`hc: ${text}`); });
+      lines(child.stderr, text => { if (text) logger(`hc: ${text}`); });
       child.once('exit', () => socket.end());
       socket.write(JSON.stringify({ protocol: MAGIC, ok: true, session }) + '\n');
       socket.pipe(child.stdin); child.stdout.pipe(socket); socket.resume();
-    })().catch(error => { log(`Bridge rejected/closed: ${error.message}`); socket.destroy(); });
+    })().catch(error => { logger(`Bridge rejected/closed: ${error.message}`); socket.destroy(); });
   });
-  server.stop = () => { for (const socket of sockets) socket.destroy(); server.close(); };
+  server.stop = () => { for (const socket of sockets) socket.destroy(); if (server.listening) server.close(); };
   return server;
 }
 
-async function serve(args) {
-  if (args._.length) throw new Error('Unexpected positional arguments');
+export async function serve(args, hooks = {}) {
+  if (args._?.length) throw new Error('Unexpected positional arguments');
+  const logger = hooks.logger ?? log;
   const port = number(args.port, 43821, 65535), session = sessionName(args.session);
   const hc = executable(args.hc ?? 'hc');
-  const server = createBridge({ hc, session });
-  let tunnel;
-  const stop = () => { server.stop(); tunnel?.stdin.end(); stopChild(tunnel); };
+  const server = createBridge({ hc, session, logger });
+  let tunnel, stopping = false, finished = false, resolveDone;
+  const done = new Promise(resolve => { resolveDone = resolve; });
+  const finish = code => {
+    if (finished) return;
+    finished = true; server.stop();
+    process.off('SIGINT', stop); process.off('SIGTERM', stop);
+    if (code) process.exitCode = code;
+    resolveDone(code);
+  };
+  const stop = () => {
+    if (!stopping) {
+      stopping = true; server.stop();
+      if (tunnel) closeManagedTunnel(tunnel); else finish(0);
+    }
+    return done;
+  };
+  const handle = { stop, done };
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
   try {
     // Bind before publishing: do not accidentally publish another local service.
     server.listen(port, '127.0.0.1'); await once(server, 'listening');
-    log(`Bridge listening on 127.0.0.1:${port}; hc session=${session}`);
-    log('Security: authenticated tunnel clients AND trusted local processes get full access to this hc account.');
-    if (args['no-tunnel']) return;
+    logger(`Bridge listening on 127.0.0.1:${port}; hc session=${session}`);
+    logger('Security: authenticated tunnel clients AND trusted local processes get full access to this hc account.');
+    if (args['no-tunnel']) { hooks.onReady?.(); return handle; }
     const cli = executable(args.devtunnel ?? 'devtunnel');
     let target = tunnelName(args.tunnel);
     await runCommand(cli, ['user', 'show']);
+    if (stopping) return handle;
     if (args.create) {
       const created = JSON.parse(await runCommand(cli, ['create', target, '--json']));
       const t = created.tunnel ?? created;
       if (t.tunnelId && t.clusterId) target = `${t.tunnelId}.${t.clusterId}`;
-      log(`Created PRIVATE tunnel ${target}. It remains after this process exits.`);
+      logger(`Created PRIVATE tunnel ${target}. It remains after this process exits.`);
+      if (stopping) return handle;
       await runCommand(cli, ['port', 'create', target, '--port-number', String(port), '--protocol', 'auto', '--json']);
     }
+    if (stopping) return handle;
     const data = JSON.parse(await runCommand(cli, ['show', target, '--json']));
     const t = data.tunnel ?? data;
     const ports = t.ports ?? [];
     if (ports.length !== 1 || ports[0].portNumber !== port) throw new Error(`Use a dedicated tunnel with exactly port ${port} published`);
     const entries = [...accessEntries(t.accessControl), ...ports.flatMap(p => accessEntries(p.accessControl))];
-    // Fail closed on all additional grants, including flattened CLI ACL
-    // strings. Owner access is implicit. Broader sharing is outside this PoC.
     if (entries.length) throw new Error('This PoC requires an owner-only private tunnel with no additional tunnel/port access grants. Use a new dedicated tunnel.');
     if (t.tunnelId && t.clusterId) target = `${t.tunnelId}.${t.clusterId}`;
+    if (stopping) return handle;
     tunnel = managedTunnel({ ...args, tunnel: target }, 'host');
-    lines(tunnel.stdout, text => { if (text) log(text); });
-    lines(tunnel.stderr, text => { if (text) log(text); });
-    tunnel.once('error', error => { log(error.message); process.exitCode = 1; stop(); });
-    tunnel.once('exit', code => { if (code) process.exitCode = 1; server.stop(); });
-    log(`CLIENT COMMAND: herdr-devtunnel add --name my-remote --tunnel ${target} --port ${port} --session ${session}`);
-  } catch (error) { stop(); throw error; }
+    const output = text => {
+      if (text) logger(text);
+      if (!stopping && text.includes('Ready to accept connections for tunnel:')) hooks.onReady?.();
+    };
+    lines(tunnel.stdout, output); lines(tunnel.stderr, output);
+    tunnel.once('error', error => { logger(error.message); finish(1); });
+    // An unsolicited even-successful host exit should trigger task restart.
+    tunnel.once('exit', code => finish(stopping ? 0 : (code || 1)));
+    logger(`CLIENT COMMAND: herdr-devtunnel add --name my-remote --tunnel ${target} --port ${port} --session ${session}`);
+    return handle;
+  } catch (error) { finish(1); throw error; }
 }
 
 async function connect(args) {
@@ -285,7 +327,7 @@ async function connect(args) {
   const stop = () => {
     if (stopped) return; stopped = true;
     process.stdin.unpipe(); process.stdin.pause(); socket?.destroy();
-    child?.stdin.end(); stopChild(child);
+    closeManagedTunnel(child);
   };
   process.once('SIGINT', stop); process.once('SIGTERM', stop);
   process.stdout.on('error', stop);
@@ -372,6 +414,7 @@ export async function doctor(args = {}) {
 
 export async function main(argv = process.argv.slice(2)) {
   const [command, ...rest] = argv;
+  if (command === 'autostart') return (await import('./autostart.mjs')).autostart(rest);
   const args = parseArgs(rest);
   if (!command || command === '--help' || command === 'help' || args.help) { process.stdout.write(HELP); return; }
   if (command === '--version' || command === 'version') { process.stdout.write(`herdr-devtunnel ${VERSION}\n`); return; }

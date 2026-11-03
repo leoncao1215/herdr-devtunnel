@@ -44,6 +44,9 @@ test('fresh install works outside checkout; repeated install preserves user data
   assert.equal(report.role, 'client'); assert.equal(report.version, version);
   assert.deepEqual(readFileSync(join(paths.root, 'herdr-devtunnel.mjs')), readFileSync(source));
   assert.ok(existsSync(join(paths.root, 'docs', 'AGENT-INSTALL.md')));
+  assert.ok(existsSync(join(paths.root, 'autostart.mjs')));
+  assert.ok(existsSync(join(paths.root, 'scripts', 'windows-task.ps1')));
+  assert.ok(existsSync(join(paths.root, 'docs', 'WINDOWS-AUTOSTART.md')));
   let cli = spawnSync(process.execPath, [join(paths.root, 'herdr-devtunnel.mjs'), '--version'], { encoding: 'utf8' });
   assert.equal(cli.status, 0, cli.stderr); assert.equal(cli.stdout.trim(), `herdr-devtunnel ${version}`);
   if (process.platform !== 'win32') {

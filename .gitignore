@@ -13,5 +13,7 @@ coverage/
 id_ed25519*
 .herdr-devtunnel-install.json
 *.install-*
+autostart/
+*.tmp
 __pycache__/
 .DS_Store

@@ -73,7 +73,25 @@ herdr-devtunnel serve --tunnel my-unique-agent-host
 Wait for `Ready to accept connections for tunnel: NAME.CLUSTER`, then give the client that full identifier.
 Defaults: `127.0.0.1:43821`, remote hc session `default`. Keep this process alive; see
 [Server setup](SERVER-SETUP.md) for user-level background launch on Windows, macOS and Linux.
-No system service or boot persistence is installed.
+No system service or boot persistence is installed automatically.
+
+### Windows: login autostart
+
+After installing this package and creating the tunnel, opt in explicitly:
+
+```powershell
+herdr-devtunnel autostart install --name workbox --tunnel NAME.CLUSTER
+# Stop any old manual bridge yourself after verifying its identity, then:
+herdr-devtunnel autostart start --name workbox
+herdr-devtunnel autostart status --name workbox
+herdr-devtunnel autostart logs --name workbox
+```
+
+This registers a current-user **Interactive / Limited** task, with bounded failure retries.
+It requires login after reboot, stores no password, and does not run as SYSTEM.
+`stop` disables autostart and gracefully closes this bridge; `start` enables it again.
+See [Windows autostart](docs/WINDOWS-AUTOSTART.md) for migration, restart and removal.
+macOS/Linux autostart is not yet implemented.
 
 ## Client: add the machine
 
@@ -131,7 +149,8 @@ Client registrations store absolute executable paths. If Node/devtunnel or the i
 remove/re-add **only the affected connection** with `hc machine rm NAME` and `herdr-devtunnel add …`.
 Do not use Herdr's SSH Login / Update Core actions for these machines; maintain hc on the remote host directly.
 
-To uninstall, remove the relevant hc machine registration, stop this bridge process after verifying its PID,
+If using Windows autostart, run `herdr-devtunnel autostart uninstall --name PROFILE` first.
+To uninstall, remove the relevant hc machine registration, stop any remaining manual bridge after verifying its PID,
 then remove its launcher/runtime directory. This does not stop agent terminals or delete tunnels. Delete only
 an explicitly identified, no-longer-needed tunnel with `devtunnel delete NAME.CLUSTER --force`.
 
@@ -158,8 +177,10 @@ python3 test/live-smoke.py   # OPT-IN: creates/deletes a private 1h test tunnel;
 ```
 
 Live tests use scratch core sessions, not your working machines. CI runs offline tests on macOS, Linux and
-Windows with Node 22/24; Unix-only process fixtures are skipped on Windows. A CI workflow is provided, not
-claimed to have passed on GitHub until it actually runs.
+Windows with Node 22/24; Unix-only process fixtures are skipped on Windows. Windows CI explicitly opts into
+creating/inspecting/removing a unique **disabled** scratch scheduled task; it never starts one. Local `npm test`
+does not create tasks unless `HERDR_TEST_WINDOWS_TASKS=1` is deliberately set. Real user login-trigger behavior
+and corporate task policies still require deployment-machine verification.
 
 ## Security summary
 

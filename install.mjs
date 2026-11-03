@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 const SOURCE = dirname(fileURLToPath(import.meta.url));
 const APP = 'herdr-devtunnel';
 const MARKER = '.herdr-devtunnel-install.json';
-const FILES = ['herdr-devtunnel.mjs', 'install.mjs', 'package.json', 'README.md', 'README.zh-CN.md', 'SERVER-SETUP.md', 'AGENTS.md', 'SECURITY.md', 'LICENSE', 'docs/AGENT-INSTALL.md'];
+const FILES = ['herdr-devtunnel.mjs', 'autostart.mjs', 'scripts/windows-task.ps1', 'install.mjs', 'package.json', 'README.md', 'README.zh-CN.md', 'SERVER-SETUP.md', 'AGENTS.md', 'SECURITY.md', 'LICENSE', 'docs/AGENT-INSTALL.md', 'docs/WINDOWS-AUTOSTART.md'];
 const HELP = `Install the same client/server package under the current user (Node >=22).
 
   node install.mjs --role client|server|both [--check]

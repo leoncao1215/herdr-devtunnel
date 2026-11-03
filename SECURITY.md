@@ -26,6 +26,17 @@ The bridge is a user process, not a service. Closing the bridge does not deliber
 but OS logout/reboot, process/job policies, or core/holder loss may end them. Do not promise unattended
 persistence across these events.
 
+Windows login autostart is an explicit opt-in (`autostart install`), not a side effect of package installation.
+It uses the current user's SID with Interactive logon and Limited run level: no SYSTEM, S4U, stored password,
+elevation or ExecutionPolicy change. The user must log in after a reboot. Respect company policy if registration
+or PowerShell execution is denied. Do not retry with greater privileges.
+
+Task ownership/action is checked before modifications. Graceful stop uses a runId-scoped control file, not a
+bare PID kill or `hc server stop`. `stop` disables triggers/retries until `start` enables them. Task state,
+control files and logs live in the user's LOCALAPPDATA and inherit its ACL; they are trusted user-local data,
+not an authentication boundary against other processes running as that user. Back up/review config before
+changing executable paths. Logs may contain account/path information and must not be published unredacted.
+
 ## Input and process handling
 
 The client recognizes the tested hc connection bootstrap but never evaluates it. The server only spawns the

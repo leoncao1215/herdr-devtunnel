@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0
+
+- Add opt-in Windows current-user login tasks: install, start, stop, restart, status, logs, uninstall.
+- Use Interactive/Limited logon, no stored password/elevation; bounded task retries and duplicate suppression.
+- Add runId-scoped graceful shutdown, fresh-state reporting, rotating logs, and strict task ownership checks.
+- Keep package installation and existing manual bridge processes unchanged until explicit migration.
+- Fix Windows tunnel cleanup ordering: close supervisor lifetime pipe before considering forced cleanup.
+- Add offline runner tests and opt-in Windows CI checks for unique disabled task registration/cleanup.
+- Document migration, login/logout limits, and company-policy failure behavior.
+
 ## 0.1.1
 
 - Prepare the public repository, English/Chinese quickstarts and agent deployment runbook.
